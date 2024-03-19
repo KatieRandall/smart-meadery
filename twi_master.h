@@ -1,8 +1,12 @@
 /*
+* Copyright (c) 2019 Sovichea Tep
 * twi_master.h
 *
 * Created: 09-Jun-19 11:20:04 AM
-*  Author: TEP SOVICHEA
+* Author: TEP SOVICHEA
+*
+* Modified: 03-Mar-24 12:32:00 PM
+* Editor: KATIE RANDALL
 */
 
 

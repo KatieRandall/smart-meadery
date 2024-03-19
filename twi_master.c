@@ -1,8 +1,12 @@
 /*
+* Copyright (c) 2019 Sovichea Tep
 * twi_master.c
 *
 * Created: 09-Jun-19 11:20:17 AM
-*  Author: TEP SOVICHEA
+* Author: TEP SOVICHEA
+*
+* Modified: 03-Mar-24 12:32:00 PM
+* Editor: KATIE RANDALL
 */
 
 #include "twi_master.h"
@@ -31,7 +35,7 @@ static ret_code_t tw_start(void)
 	printf("SUCCESS\n");
 #endif
 	return SUCCESS;
-}
+	}
 
 
 static void tw_stop(void)
@@ -67,7 +71,7 @@ static ret_code_t tw_write_sla(uint8_t sla)
 	printf("SUCCESS\n");
 #endif
 	return SUCCESS;
-}
+	}
 
 
 static ret_code_t tw_write(uint8_t data)
@@ -93,7 +97,7 @@ static ret_code_t tw_write(uint8_t data)
 	printf("SUCCESS\n");
 #endif
 	return SUCCESS;
-}
+	}
 
 
 static uint8_t tw_read(bool read_ack)
@@ -121,7 +125,7 @@ static uint8_t tw_read(bool read_ack)
 	printf(BG "Read data byte: 0x%02X\n" RESET, data);
 #endif
 	return data;
-}
+		}
 
 
 void tw_init(twi_freq_mode_t twi_freq_mode, bool pullup_en)
