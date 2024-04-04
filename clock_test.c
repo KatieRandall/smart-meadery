@@ -21,15 +21,16 @@ int main(void)
 	{
 		lcd_clearscreen();
 		uint8_t read_bit[1];
-		uint8_t year_address[] = { 0x06 };
+		//uint8_t year_address[] = { 0x06 };
 		read_bit[0] = 0;
 
-		uint8_t write_buffer[1];
-		write_buffer[0] = 0b00010100;
+		uint8_t write_buffer[2];
+		write_buffer[0] = 0x06;
+		write_buffer[1] = 0b000011000;
 
-		tw_master_transmit(WRITE_ADDRESS, year_address, sizeof(read_bit), repeat_start);
+		//tw_master_transmit(DS1307_ADDRESS, read_bit, sizeof(read_bit), repeat_start);
+		//tw_master_transmit(DS1307_ADDRESS, year_address, sizeof(year_address), repeat_start);
 		tw_master_transmit(DS1307_ADDRESS, write_buffer, sizeof(write_buffer), repeat_start);
-
 
 		read_bit[0] = 0;
 		uint8_t buffer[7];
@@ -40,7 +41,9 @@ int main(void)
 		/*DateTime data = DateTime(bcd2bin(buffer[6]) + 2000U, bcd2bin(buffer[5]),
 			bcd2bin(buffer[4]), bcd2bin(buffer[2]), bcd2bin(buffer[1]),
 			bcd2bin(buffer[0] & 0x7F));*/
-		uint16_t year = buffer[6] & 0x0F;
+		//uint16_t year = buffer[6] & 0x0F;
+		uint16_t year = buffer[6] + 2000U;
+
 		uint8_t month = buffer[5] & 0x0F;
 		uint8_t day = buffer[4] & 0x0F;
 		uint8_t hour = buffer[2] & 0x0F;
