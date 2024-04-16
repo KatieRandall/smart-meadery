@@ -8,5 +8,6 @@
 void lcd_writechar(unsigned char);
 void lcd_writestring(char*);
 void lcd_cursormoveto(unsigned char, unsigned char);
+void lcd_clearscreen();
 
 #endif /* LCD_H_ */
