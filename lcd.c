@@ -21,7 +21,7 @@ void lcd_cursormoveto(unsigned char row, unsigned char col)
 {
 	uint8_t prefix[] = { 0xFE };
 	uint8_t SET_CURSOR[] = { 0x45 };
-	uint8_t basePosition;
+	uint8_t basePosition = 0;
 
 	switch (row) {
 	case 0:
@@ -44,4 +44,11 @@ void lcd_cursormoveto(unsigned char row, unsigned char col)
 	tw_master_transmit(ADDRESS, prefix, sizeof(prefix), false);
 	tw_master_transmit(ADDRESS, SET_CURSOR, sizeof(SET_CURSOR), false);
 	tw_master_transmit(ADDRESS, cursor_pos, sizeof(cursor_pos), false);
+}
+void lcd_clearscreen()
+{
+	uint8_t prefix[] = { 0xFE };
+	uint8_t CLEAR_SCREEN[] = { 0x51 };
+	tw_master_transmit(ADDRESS, prefix, sizeof(prefix), false);
+	tw_master_transmit(ADDRESS, CLEAR_SCREEN, sizeof(CLEAR_SCREEN), false);
 }
