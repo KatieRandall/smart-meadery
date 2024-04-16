@@ -1,33 +1,42 @@
+#include "lcd.h"
 #include <avr/io.h>
 #include <util/delay.h>
 
 
-#define RELAY_PIN   7   // Assuming Pin 7 is used for controlling the relay
+#define RELAY_PIN   PC7   
 
 
 void initRelayPin() {
-    // Set RELAY_PIN as output
     DDRD |= (1 << RELAY_PIN);
 }
 
-// Function to turn on the relay
+
 void turnOnRelay() {
     PORTD |= (1 << RELAY_PIN);
 }
 
-// Function to turn off the relay
+
 void turnOffRelay() {
     PORTD &= ~(1 << RELAY_PIN);
+}
+
+// Function for temp sensor
+//Needs to be adjusted
+int readTemperature() {
+    return 25; 
 }
 
 int main(void) {
     initRelayPin();
 
     while (1) {
-        turnOnRelay();
-        _delay_ms(1000); 
+        int temperature = readTemperature();
 
-        turnOffRelay();
+        if (temperature > 30) {
+            turnOnRelay();
+        } else {
+            turnOffRelay();
+        }
         _delay_ms(1000); 
     }
     return 0;
