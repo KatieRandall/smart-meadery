@@ -80,7 +80,8 @@ void get_temp(unsigned char *tdata)
 
     // READ DATA
     char buftemp[40];
-    for(int i = 0; i < 40; i++)
+    int i = 0;
+    for(i = 0; i < 40; i++)
     {
         buftemp[i] = ds_readbit(); 
     }
@@ -92,14 +93,15 @@ void get_temp(unsigned char *tdata)
     //     lcd_cursormoveto(i/20, i%20);
 	//     lcd_writestring(print1);
     // }
-
-    for(int buf = 0; buf < 5; buf++)
+    int buf = 0;
+    for(buf = 0; buf < 5; buf++)
     {
-        for(int i = 0; i < 8; i++)
+        int j = 0;
+        for(j = 0; j < 8; j++)
         {
             int offset = 8*buf;
-            int idx_buf = offset + i;
-            tdata[buf] |= (buftemp[idx_buf] << (7-i));
+            int idx_buf = offset + j;
+            tdata[buf] |= (buftemp[idx_buf] << (7-j));
         }
     }
 
@@ -120,12 +122,12 @@ void get_temp(unsigned char *tdata)
     snprintf(buf0, 20, "H: %d.%d T: %d.%d", humid/10, humid%10, temp_c/10, temp_c%10);
 	snprintf(buf1, 20, "0: %d 1: %d", tdata[0], tdata[1]);
 	snprintf(buf2, 20, "2: %d 3: %d 4: %d", tdata[2], tdata[3], tdata[4]);
-	lcd_cursormoveto(0, 0);
+/*	lcd_cursormoveto(0, 0);
 	lcd_writestring(buf0);
     lcd_cursormoveto(1, 0);
 	lcd_writestring(buf1);
 	lcd_cursormoveto(2, 0);
-	lcd_writestring(buf2);   
+	lcd_writestring(buf2); */  
     _delay_ms(1000);
 }
 

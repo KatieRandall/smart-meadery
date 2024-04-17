@@ -32,3 +32,5 @@
 *.app
 
 .vs/
+main.elf
+main.hex
