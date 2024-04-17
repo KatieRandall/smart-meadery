@@ -31,6 +31,7 @@ int main(void)
 
 	while (1)
 	{
+		PORTC |= (1 << PC0);
 		tw_master_transmit(LCD_ADDR, prefix, sizeof(prefix), repeat_start);
 		tw_master_transmit(LCD_ADDR, CURSER_HOME, sizeof(CURSER_HOME), repeat_start);
 
@@ -49,5 +50,9 @@ int main(void)
 		//TODO: Fix error with 3rd row
 
 		_delay_ms(1000);
+		PORTC &= ~(1 << PC0);
+		_delay_ms(1000);
+
+
 	}
 }

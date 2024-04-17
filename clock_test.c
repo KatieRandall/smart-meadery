@@ -14,7 +14,22 @@
 
 int main(void)
 {
+	//while (1)
+	//{
+	//	// set debugging pin to be an output (ddr to 1)
+	//	DDRC |= (1 << PC0);
 
+	//	// set all outputs to zero (low)
+	//	PORTC &= ~(1 << PC0);
+
+	//	_delay_ms(1000);
+
+	//	PORTC |= (1 << PC0);
+
+	//	_delay_ms(1000);
+
+
+	//}
 	tw_init(TW_FREQ_50K, false); // set I2C Frequency, enable internal pull-up
 	bool repeat_start = false;
 	lcd_clearscreen();
