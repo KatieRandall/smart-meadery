@@ -85,33 +85,35 @@ void get_temp(unsigned char *tdata)
         buftemp[i] = ds_readbit(); 
     }
 
-    for(int i = 0; i < 40; i++)
-    {
-        char print1[2];
-        snprintf(print1,2,"%01d", buftemp[i]);
-        lcd_cursormoveto(i/20, i%20);
-	    lcd_writestring(print1);
-    }
-    // unsigned char byte1 = 0;
+    // for(int i = 0; i < 40; i++)
+    // {
+    //     char print1[2];
+    //     snprintf(print1,2,"%01d", buftemp[i]);
+    //     lcd_cursormoveto(i/20, i%20);
+	//     lcd_writestring(print1);
+    // }
 
-    // byte |= (bit0 << 0);
-    // byte |= (bit1 << 1);
-    // byte |= (bit2 << 2);
-    // byte |= (bit3 << 3);
-    // byte |= (bit4 << 4);
-    // byte |= (bit5 << 5);
-    // byte |= (bit6 << 6);
-    // byte |= (bit7 << 7);
-    while(1){}
-    tdata[0] = ds_readbyte();   // Read the first byte (LSB) - SUM
-    tdata[1] = ds_readbyte();   // Read the second byte  - temp data decimal
-    tdata[2] = ds_readbyte();   // Read the third byte - temp data whole number
-    tdata[3] = ds_readbyte();   // Read the fourth byte - humidity data decimal
-    tdata[4] = ds_readbyte();   // Read the fifth byte (MSB) - humidity data whole number
+    for(int buf = 0; buf < 5; buf++)
+    {
+        for(int i = 0; i < 8; i++)
+        {
+            int offset = 8*buf;
+            int idx_buf = offset + i;
+            tdata[buf] |= (buftemp[idx_buf] << (7-i));
+        }
+    }
+
+    // while(1){};
+
+    // tdata[0] = ds_readbyte();   // Read the first byte (LSB) - SUM
+    // tdata[1] = ds_readbyte();   // Read the second byte  - temp data decimal
+    // tdata[2] = ds_readbyte();   // Read the third byte - temp data whole number
+    // tdata[3] = ds_readbyte();   // Read the fourth byte - humidity data decimal
+    // tdata[4] = ds_readbyte();   // Read the fifth byte (MSB) - humidity data whole number
 
     // DISPLAY
-    int humid = (((tdata[2])<<8) | tdata[1]); // make humidity reading into one int
-    int temp_c = (((tdata[3])<<8) | tdata[4]); // make temperature reading into one int
+    int humid = (((tdata[0])<<8) | tdata[1]); // make humidity reading into one int
+    int temp_c = (((tdata[2])<<8) | tdata[3]); // make temperature reading into one int
     char buf0[20];
     char buf1[20];
     char buf2[20];

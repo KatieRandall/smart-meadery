@@ -31,6 +31,11 @@ int main(void)
 
 	// Initialize array t which will store 5 bytes of temp sensor outputs 
 	unsigned char tdata[5];
+	tdata[0] = 0;
+	tdata[1] = 0;
+	tdata[2] = 0;
+	tdata[3] = 0;
+	tdata[4] = 0;
 
 	// set led debugging pin to be an output (ddr to 1)
 	DDRC |= (1 << PC0);
