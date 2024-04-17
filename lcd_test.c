@@ -42,11 +42,11 @@ int main(void)
 		tw_master_transmit(LCD_ADDR, CURSER_HOME, sizeof(CURSER_HOME), repeat_start);
 
 		lcd_cursormoveto(0, 3);
-		lcd_writestring("EE459 LCD Test");
+		lcd_writestring("EE459 LCD Test Code");
 		lcd_cursormoveto(1, 4);
 		lcd_writestring("Spring 2024");
 		lcd_cursormoveto(2, 6);
-		lcd_writestring("KR GT GB");
+		lcd_writestring("KR GB GT");
 		//TODO: Fix error with 3rd row
 
 		_delay_ms(1000);

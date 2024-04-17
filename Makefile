@@ -1,11 +1,8 @@
 DEVICE     = atmega328p
 CLOCK      = 7372800
+OBJECTS    = rht03.o lcd.o temp_test.o twi_master.o
 PROGRAMMER = -c usbtiny -P usb
-OBJECTS    = clock_test.o twi_master.o lcd.o
-FUSES      = -U hfuse:w:0xd9:m -U lfuse:w:0xe0:m
-
 # Fuse Low Byte = 0xe0   Fuse High Byte = 0xd9   Fuse Extended Byte = 0xff
-# Bit 7: CKDIV8  = 1     Bit 7: RSTDISBL  = 1    Bit 7:
 #     6: CKOUT   = 1         6: DWEN      = 1        6:
 #     5: SUT1    = 1         5: SPIEN     = 0        5:
 #     4: SUT0    = 0         4: WDTON     = 1        4:
