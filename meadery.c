@@ -8,9 +8,8 @@
 #include <stdint.h>
 #include <avr/interrupt.h>
 
-#define STOP_BREW_PIN   PD0
+#define STOP_BREW_PIN   PD2
 #define TEMP_SENSOR_PIN   PD1
-#define ERROR_RST_PIN   PD2
 #define ROTARY_A   PC2
 #define ROTARY_B   PC1
 #define UP_BUTTON   PD4
@@ -22,6 +21,7 @@
 #define GREEN_LED   PB7
 #define ORANGE_LED   PB2
 #define RELAY_PIN   PB1
+#define FRIDGE_INDICATOR PD3
 
 enum LCD_STATES { TEMP, TIME, BUBBLES };
 enum LED_STATES { OFF, ON };
@@ -32,110 +32,193 @@ void set_led(char bit, char value);
 void determine_initial_rotary_state();
 void rotary_inc();
 void rotary_dec();
+void update_temp();
+void update_fridge();
+void temp_print();
+void time_print();
+void bubbles_print();
 
-volatile int temp_thresh = 230;
-volatile int hours = 0;
-volatile int hours_inc = 1;
-volatile int lcd_state = TEMP;
+// Rotary variables
 volatile unsigned char new_state, old_state;
 volatile unsigned char changed;
 
+// State variables
+volatile int lcd_state = TEMP;
+int brewing_state;
+bool starting = true;
+bool is_currently_bubble = false;
+bool is_fahrenheight = false;
+bool is_paused = false;
+
+// Timing variables
+struct time initial_time;
+struct time current_time;
+int elapsed_hours = 0;
+int delay_count = 60;
+
+// Temperature variables
+uint16_t celsius_temp = 0;
+uint16_t current_temp = 0;
+volatile int temp_thresh = 230;
+
+// Bubble variables
+int bubble_history[400];
+int bubbles_this_hour = 0;
+uint8_t phototran_sample;
+const uint8_t bubble_threshold = 80;
+volatile int view_hour = 0;
+volatile int hours_inc = 1;
+
 int main(void)
 {
-	int lcd_state;
-	int brewing_state;
-	struct time initial_time;
-	struct time current_time;
-	int elapsed_hours = 0;
-	bool starting = true;
 
+	// Initialize pins
 	DDRB |= ((1 << RED_LED) | (1 << ORANGE_LED) | (1 << GREEN_LED));
-	PORTD |= ((1 << UP_BUTTON) | (1 << DOWN_BUTTON) | (1 << LEFT_BUTTON) | (1 << RIGHT_BUTTON));
+	DDRB |= (1 << RELAY_PIN);
+	DDRD |= (1 << FRIDGE_INDICATOR);
+	PORTD |= ((1 << UP_BUTTON) | (1 << DOWN_BUTTON) | (1 << LEFT_BUTTON) | (1 << RIGHT_BUTTON) | (1 << STOP_BREW_PIN));
 	PORTC |= ((1 << ROTARY_A) | (1 << ROTARY_B));
 
+	// Enable pin change interrupt (rotary encoder)
 	PCICR |= (1 << PCIE1);
 	PCMSK1 |= (1 << PCINT10 | 1 << PCINT9);
 	sei();
-
 	determine_initial_rotary_state();
-	lcd_cursormoveto(0, 0);
-	lcd_writestring("                    ");
-	lcd_cursormoveto(1, 0);
-	lcd_writestring("                    ");
-	lcd_cursormoveto(2, 0);
-	lcd_writestring("                    ");
+
+	// Initialize LCD & ADC
+	lcd_init();
+	adc_init();
+
+	// Display welcome screen
+	lcd_clearscreen();
+	lcd_cursormoveto(0, 5);
+	lcd_writestring("Welcome2");
+	lcd_cursormoveto(1, 3);
+	lcd_writestring("Smart Meadery");
+	_delay_ms(1000);
+	lcd_clearscreen();
+	
 
 	while (1)
 	{
+		// Start brew
 		if (starting)
 		{
 			initial_time = get_current_time();
+			current_time = initial_time;
 			starting = false;
 			brewing_state = IN_PROGRESS;
 		}
-		if (get_current_time().hour != current_time.hour)
-		{
-			elapsed_hours++;
-		}
-		current_time = get_current_time();
 
-		// Check temperature
-		unsigned char tdata[5] = { 0 };
-		get_temp(tdata);
-		uint16_t temp = 0;
-		temp = (tdata[2] << 8) | tdata[3];
-		if (temp > temp_thresh)
+		// Operations to do about once a minute
+		if (delay_count >= 60)
 		{
-			//fridge on
-		}
-		else
-		{
-			//fridge off
+			//If new hour
+			if (get_current_time().min != current_time.min)
+			{
+				bubble_history[elapsed_hours] = bubbles_this_hour;
+				if (bubbles_this_hour == 0)
+				{
+					brewing_state = DONE;
+				}
+				bubbles_this_hour = 0;
+				elapsed_hours++;
+			}
+			current_time = get_current_time();
+
+			// Check temperature
+			update_temp();
+
+			// Turn on/off fridge
+			update_fridge();
+
+			// Update LCD screen
+			if (lcd_state == TEMP) temp_print();
+			if (lcd_state == TIME) time_print();
+			if (lcd_state == BUBBLES) bubbles_print();
+
+			delay_count = 0;
 		}
 
-		// Generate LCD display
+		// Count bubbles
+		phototran_sample = adc_sample(PHOTOTRAN_PIN);
+		if (phototran_sample > bubble_threshold)
+		{
+			is_currently_bubble = true;
+		}
+		if (is_currently_bubble)
+		{
+			if (phototran_sample < bubble_threshold)
+			{
+				is_currently_bubble = false;
+				bubbles_this_hour++;
+				if (lcd_state == BUBBLES) bubbles_print();
+			}
+		}
+
+		if (changed)
+		{
+			update_fridge();
+			if (lcd_state == TEMP) temp_print();
+			if (lcd_state == BUBBLES) bubbles_print();
+			changed = false;
+		}
+		// Update states
 		if (lcd_state == TEMP)
 		{
-			lcd_cursormoveto(0,0);
-			lcd_writestring("Actual: Thresh:    f");
-			char temp_print[20];
-			snprintf(temp_print, 20, "%2d.%1d  %2d.%1d    c", temp / 10, temp % 10, temp_thresh / 10, temp_thresh % 10);
-			lcd_cursormoveto(1, 0);
-			lcd_writestring(temp_print);
-			if (is_pressed(LEFT_BUTTON))
+			if (is_pressed(UP_BUTTON))
+			{
+				if (!is_fahrenheight)
+				{
+					is_fahrenheight = true;
+					update_temp();
+					temp_print();
+				}
+			}
+			else if (is_pressed(DOWN_BUTTON))
+			{
+				if (is_fahrenheight)
+				{
+					is_fahrenheight = false;
+					update_temp();
+					temp_print();
+				}
+			}
+			else if (is_pressed(RIGHT_BUTTON))
 			{
 				lcd_state = TIME;
-				lcd_clearscreen();
+				time_print();
 			}
 
 		}
 		else if (lcd_state == TIME)
 		{
-			lcd_cursormoveto(0, 0);
-			lcd_writestring("Started: Elapsed:    ");
-			char time_print[20];
-			snprintf(time_print, 20, "%02d/%02d/%02d  %2dd %2dh", initial_time.month, initial_time.date, initial_time.year, elapsed_hours/24, elapsed_hours%24);
-			lcd_cursormoveto(1, 0);
-			lcd_writestring(time_print);
 			if (is_pressed(LEFT_BUTTON))
 			{
 				lcd_state = TEMP;
-				lcd_clearscreen();
+				temp_print();
 			}
-			if (is_pressed(RIGHT_BUTTON)) {
+			else if (is_pressed(RIGHT_BUTTON)) {
 				lcd_state = BUBBLES;
-				lcd_clearscreen();
+				bubbles_print();
 			}
 		}
 		else if (lcd_state == BUBBLES)
 		{
-			lcd_cursormoveto(0, 0);
-			lcd_writestring("Bubbles:    ");
-			char bubbles_print[20];
-			snprintf(bubbles_print, 20, "%2dd %2dh", hours/24, hours%24);
-			if (is_pressed(RIGHT_BUTTON)) {
+			if (is_pressed(UP_BUTTON)) {
+				hours_inc++;
+				bubbles_print();
+			}
+			else if (is_pressed(DOWN_BUTTON)) {
+				if (hours_inc > 0)
+				{
+					hours_inc--;
+				}
+				bubbles_print();
+			}
+			else if (is_pressed(LEFT_BUTTON)) {
 				lcd_state = TIME;
-				lcd_clearscreen();
+				time_print();
 			}
 		}
 
@@ -155,6 +238,45 @@ int main(void)
 			set_led(GREEN_LED, ON);
 			set_led(ORANGE_LED, OFF);
 		}
+
+		if ((PIND & (1 << STOP_BREW_PIN)) == 0)
+		{
+			_delay_ms(5);
+			int i = 0;
+			while ((PIND & (1 << STOP_BREW_PIN)) == 0)
+			{
+				_delay_ms(100);
+				i++;
+			}
+			if (i >= 50)
+			{
+				lcd_clearscreen();
+				lcd_cursormoveto(0, 0);
+				lcd_writestring("Starting new brew");
+				_delay_ms(1000);
+				starting = true;
+				DDRD |= (1 << PD0);
+				PORTD &= ~(1 << PD0);
+				_delay_us(3);
+				PORTD |= (1 << PD0);
+			}
+			else
+			{
+				lcd_clearscreen();
+				lcd_cursormoveto(0, 0);
+				lcd_writestring("Saving brew");
+				_delay_ms(1000);
+				starting = false;
+				DDRD |= (1 << PD0);
+				PORTD &= ~(1 << PD0);
+				_delay_us(3);
+				PORTD |= (1 << PD0);
+			}
+			_delay_ms(5);
+		}
+		// Delay .1s
+		delay_count++;
+		_delay_ms(100);
 	}
 	return 0;
 }
@@ -228,11 +350,11 @@ void set_led(char bit, char value)
 {
 	if (value)
 	{
-		PINB |= (1 << bit);
+		PORTB |= (1 << bit);
 	}
 	else
 	{
-		PINB &= ~(1 << bit);
+		PORTB &= ~(1 << bit);
 	}
 }
 void determine_initial_rotary_state()
@@ -259,9 +381,9 @@ void rotary_inc()
 	{
 		temp_thresh++;
 	}
-	else if (lcd_state == BUBBLES)
+	if (lcd_state == BUBBLES)
 	{
-		hours++;
+		view_hour += hours_inc;
 	}
 }
 void rotary_dec()
@@ -270,8 +392,86 @@ void rotary_dec()
 	{
 		temp_thresh--;
 	}
-	else if (lcd_state == BUBBLES)
+	if (lcd_state == BUBBLES)
 	{
-		hours--;
+		view_hour -= hours_inc;
+		if (view_hour < 0)
+		{
+			view_hour = 0;
+		}
 	}
+}
+void update_temp()
+{
+	unsigned char temp_data[5] = { 0 };
+	get_temp(temp_data);
+	celsius_temp = 0;
+	celsius_temp = (temp_data[2] << 8) | temp_data[3];
+	if (is_fahrenheight)
+	{
+		current_temp = ((celsius_temp * 9)/5) + 320;
+	}
+	else
+	{
+		current_temp = celsius_temp;
+	}
+}
+void update_fridge()
+{
+	if (current_temp > temp_thresh)
+	{
+		PORTB |= (1 << RELAY_PIN);
+		PORTD |= (1 << FRIDGE_INDICATOR);
+	}
+	else
+	{
+		PORTB &= ~(1 << RELAY_PIN);
+		PORTD &= ~(1 << FRIDGE_INDICATOR);
+
+	}
+}
+void temp_print()
+{
+	lcd_cursormoveto(0, 0);
+	lcd_writestring("Actual:  Thresh:   f");
+	char temp_print[21];
+	snprintf(temp_print, 21, "%2d.%1d     %2d.%1d      c", current_temp / 10, current_temp % 10, temp_thresh / 10, temp_thresh % 10);
+	lcd_cursormoveto(1, 0);
+	lcd_writestring(temp_print);
+	lcd_cursormoveto(3, 0);
+	lcd_writestring(">TEMP  TIME  BUBBLES");
+	if (is_fahrenheight)
+	{
+		lcd_cursormoveto(0, 18);
+		lcd_writestring(">");
+	}
+	else
+	{
+		lcd_cursormoveto(1, 18);
+		lcd_writestring(">");
+	}
+}
+void time_print()
+{
+	lcd_cursormoveto(0, 0);
+	lcd_writestring("Started:   Elapsed:  ");
+	char time_print[21];
+	snprintf(time_print, 21, "%02d/%02d/%02d  %2dd %2dh   ", initial_time.month, initial_time.date, initial_time.year - 2000U, elapsed_hours / 24, elapsed_hours % 24);
+	lcd_cursormoveto(1, 0);
+	lcd_writestring(time_print);
+	lcd_cursormoveto(3, 0);
+	lcd_writestring(" TEMP >TIME  BUBBLES");
+}
+void bubbles_print()
+{
+	lcd_cursormoveto(0, 0);
+	char bubbles_print_0[21];
+	snprintf(bubbles_print_0, 21, "Curr: @%2dd%2dh   inc: ", view_hour / 24, view_hour % 24);
+	lcd_writestring(bubbles_print_0);
+	lcd_cursormoveto(1, 0);
+	char bubbles_print_1[21];
+	snprintf(bubbles_print_1, 21, "%4d  %4d      %2d", bubbles_this_hour, bubble_history[view_hour], hours_inc);
+	lcd_writestring(bubbles_print_1);
+	lcd_cursormoveto(3, 0);
+	lcd_writestring(" TEMP  TIME >BUBBLES");
 }

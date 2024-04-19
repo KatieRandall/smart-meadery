@@ -4,6 +4,10 @@
 
 #define ADDRESS	0x28
 
+void lcd_init()
+{
+	tw_init(TW_FREQ_50K, false); // set I2C Frequency, enable internal pull-up
+}
 void lcd_writechar(unsigned char c)
 {
 	uint8_t letter[] = { c };
@@ -23,21 +27,34 @@ void lcd_cursormoveto(unsigned char row, unsigned char col)
 	uint8_t SET_CURSOR[] = { 0x45 };
 	uint8_t basePosition = 0;
 
+	//switch (row) {
+	//case 0:
+	//	basePosition = 0; // Row 0: 0-19
+	//	break;
+	//case 1:
+	//	basePosition = 40; // Row 1: 40-59
+	//	break;
+	//case 2:
+	//	basePosition = 20; // Row 2: 20-39
+	//	break;
+	//case 3:
+	//	basePosition = 60; // Row 3: 60-79
+	//	break;
+	//}
 	switch (row) {
 	case 0:
 		basePosition = 0; // Row 0: 0-19
 		break;
 	case 1:
-		basePosition = 40; // Row 1: 40-59
+		basePosition = 64; // Row 1: 40-59
 		break;
 	case 2:
 		basePosition = 20; // Row 2: 20-39
 		break;
 	case 3:
-		basePosition = 60; // Row 3: 60-79
+		basePosition = 84; // Row 3: 60-79
 		break;
 	}
-
 	uint8_t position = basePosition + col;
 	uint8_t cursor_pos[] = { position };
 
