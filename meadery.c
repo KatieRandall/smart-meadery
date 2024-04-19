@@ -37,6 +37,7 @@ void update_fridge();
 void temp_print();
 void time_print();
 void bubbles_print();
+void reset_device();
 
 // Rotary variables
 volatile unsigned char new_state, old_state;
@@ -44,7 +45,7 @@ volatile unsigned char changed;
 
 // State variables
 volatile int lcd_state = TEMP;
-int brewing_state;
+int brewing_state = IN_PROGRESS;
 bool starting = true;
 bool is_currently_bubble = false;
 bool is_fahrenheight = false;
@@ -78,6 +79,7 @@ int main(void)
 	DDRD |= (1 << FRIDGE_INDICATOR);
 	PORTD |= ((1 << UP_BUTTON) | (1 << DOWN_BUTTON) | (1 << LEFT_BUTTON) | (1 << RIGHT_BUTTON) | (1 << STOP_BREW_PIN));
 	PORTC |= ((1 << ROTARY_A) | (1 << ROTARY_B));
+	PORTD &= ~(1 << PD0);
 
 	// Enable pin change interrupt (rotary encoder)
 	PCICR |= (1 << PCIE1);
@@ -92,23 +94,30 @@ int main(void)
 	// Display welcome screen
 	lcd_clearscreen();
 	lcd_cursormoveto(0, 5);
-	lcd_writestring("Welcome2");
+	lcd_writestring("Welcome");
 	lcd_cursormoveto(1, 3);
 	lcd_writestring("Smart Meadery");
 	_delay_ms(1000);
 	lcd_clearscreen();
 	
-
+	// Start brew
+	if (starting)
+	{
+		initial_time = get_current_time();
+		current_time = initial_time;
+		// update eeprom with initial time
+	}
+	else
+	{
+		initial_time = eeprom_read_byte((uint8_t*)0);
+		elapsed_hours = eeprom_read_byte((uint8_t*)8); // eeprom read 
+		temp_thresh = eeprom_read_byte((uint8_t*)16); // eeprom read
+		bubble_history = eeprom_read_byte((uint8_t*)16);// eeprom read
+		current_time = get_current_time();
+	}
+	starting = false;
 	while (1)
 	{
-		// Start brew
-		if (starting)
-		{
-			initial_time = get_current_time();
-			current_time = initial_time;
-			starting = false;
-			brewing_state = IN_PROGRESS;
-		}
 
 		// Operations to do about once a minute
 		if (delay_count >= 60)
@@ -123,6 +132,7 @@ int main(void)
 				}
 				bubbles_this_hour = 0;
 				elapsed_hours++;
+				// Update eeprom with elapsed hours and bubble history
 			}
 			current_time = get_current_time();
 
@@ -159,10 +169,12 @@ int main(void)
 		if (changed)
 		{
 			update_fridge();
-			if (lcd_state == TEMP) temp_print();
+			if (lcd_state == TEMP) temp_print(); // in this if update temp thresh eeprom
 			if (lcd_state == BUBBLES) bubbles_print();
 			changed = false;
+			
 		}
+
 		// Update states
 		if (lcd_state == TEMP)
 		{
@@ -255,24 +267,18 @@ int main(void)
 				lcd_clearscreen();
 				lcd_cursormoveto(0, 0);
 				lcd_writestring("Starting new brew");
-				_delay_ms(1000);
+				_delay_ms(750);
 				starting = true;
-				DDRD |= (1 << PD0);
-				PORTD &= ~(1 << PD0);
-				_delay_us(3);
-				PORTD |= (1 << PD0);
+				reset_device();
 			}
 			else
 			{
 				lcd_clearscreen();
 				lcd_cursormoveto(0, 0);
 				lcd_writestring("Saving brew");
-				_delay_ms(1000);
+				_delay_ms(750);
 				starting = false;
-				DDRD |= (1 << PD0);
-				PORTD &= ~(1 << PD0);
-				_delay_us(3);
-				PORTD |= (1 << PD0);
+				reset_device();
 			}
 			_delay_ms(5);
 		}
@@ -476,4 +482,11 @@ void bubbles_print()
 	lcd_writestring(bubbles_print_1);
 	lcd_cursormoveto(3, 0);
 	lcd_writestring(" TEMP  TIME >BUBBLES");
+}
+void reset_device()
+{
+	DDRD |= (1 << PD0);
+	PORTD &= ~(1 << PD0);
+	_delay_us(3);
+	PORTD |= (1 << PD0);
 }
