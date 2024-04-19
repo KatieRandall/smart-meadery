@@ -171,6 +171,7 @@ int main(void)
 				if (!is_fahrenheight)
 				{
 					is_fahrenheight = true;
+					temp_thresh = (temp_thresh * 9) / 5 + 320;
 					update_temp();
 					temp_print();
 				}
@@ -180,6 +181,7 @@ int main(void)
 				if (is_fahrenheight)
 				{
 					is_fahrenheight = false;
+					temp_thresh = (temp_thresh - 320) * 5 / 9;
 					update_temp();
 					temp_print();
 				}
