@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <avr/interrupt.h>
+#include <avr/eeprom.h>
 
 #define STOP_BREW_PIN   PD2
 #define TEMP_SENSOR_PIN   PD1
@@ -46,9 +47,9 @@ volatile unsigned char changed;
 // State variables
 volatile int lcd_state = TEMP;
 int brewing_state = IN_PROGRESS;
-bool starting = true;
+uint8_t starting = 0x01;
 bool is_currently_bubble = false;
-bool is_fahrenheight = false;
+uint8_t is_fahrenheight = 0x00;
 bool is_paused = false;
 
 // Timing variables
@@ -69,6 +70,7 @@ uint8_t phototran_sample;
 const uint8_t bubble_threshold = 80;
 volatile int view_hour = 0;
 volatile int hours_inc = 1;
+int idx = 16; // index of next bubble data being stored in eeprom
 
 int main(void)
 {
@@ -100,22 +102,41 @@ int main(void)
 	_delay_ms(1000);
 	lcd_clearscreen();
 	
+	starting = eeprom_read_byte((uint8_t*) 14);
 	// Start brew
 	if (starting)
 	{
 		initial_time = get_current_time();
 		current_time = initial_time;
 		// update eeprom with initial time
+		eeprom_update_byte((uint8_t*) 1, initial_time.date);
+		eeprom_update_byte((uint8_t*) 2, initial_time.month);
+		eeprom_update_word((uint16_t*) 3, initial_time.year);
 	}
 	else
 	{
-		initial_time = eeprom_read_byte((uint8_t*)0);
-		elapsed_hours = eeprom_read_byte((uint8_t*)8); // eeprom read 
-		temp_thresh = eeprom_read_byte((uint8_t*)16); // eeprom read
-		bubble_history = eeprom_read_byte((uint8_t*)16);// eeprom read
+		// read eeprom initial time in
+		initial_time.date = eeprom_read_byte((uint8_t*)1);
+		initial_time.month = eeprom_read_byte((uint8_t*)2);
+		initial_time.year = eeprom_read_word((uint16_t*)3);
+
+		elapsed_hours = eeprom_read_dword((uint32_t*)6); // eeprom read 
+		temp_thresh = eeprom_read_dword((uint32_t*)10); // eeprom read
+		is_fahrenheight = eeprom_read_byte((uint8_t*)0); // eeprom read
+
+		// for(int i = 0; i < elapsed_hours; i++)
+		// {
+		// 	idx = 16 + 4 * i; 
+		// 	bubble_history[i] = eeprom_read_dword((uint32_t*)idx);// eeprom read
+		// }
+		// bubble_history = eeprom_read_byte((uint8_t*)16);// eeprom read
 		current_time = get_current_time();
 	}
-	starting = false;
+	starting = 0x00;
+	eeprom_update_byte((uint8_t*) 14, starting);
+	_delay_ms(100); 
+	eeprom_update_dword((uint32_t*) 6, elapsed_hours);
+	eeprom_update_dword((uint32_t*) 10, temp_thresh);
 	while (1)
 	{
 
@@ -130,9 +151,12 @@ int main(void)
 				{
 					brewing_state = DONE;
 				}
-				bubbles_this_hour = 0;
 				elapsed_hours++;
 				// Update eeprom with elapsed hours and bubble history
+				eeprom_update_dword((uint32_t*) 6, elapsed_hours);
+				// idx = 16 + 4 * elapsed_hours; // idx = 16 + 4;
+				// eeprom_write_dword((uint32_t*)idx, bubbles_this_hour);// eeprom read
+				bubbles_this_hour = 0;
 			}
 			current_time = get_current_time();
 
@@ -169,7 +193,11 @@ int main(void)
 		if (changed)
 		{
 			update_fridge();
-			if (lcd_state == TEMP) temp_print(); // in this if update temp thresh eeprom
+			if (lcd_state == TEMP)
+			{ 
+				temp_print(); // in this if update temp thresh eeprom 
+				eeprom_update_dword((uint32_t*) 10, temp_thresh);
+			}
 			if (lcd_state == BUBBLES) bubbles_print();
 			changed = false;
 			
@@ -182,8 +210,10 @@ int main(void)
 			{
 				if (!is_fahrenheight)
 				{
-					is_fahrenheight = true;
+					is_fahrenheight = 0x01;
+					starting = eeprom_read_byte((uint8_t*) 0);
 					temp_thresh = (temp_thresh * 9) / 5 + 320;
+					eeprom_update_dword((uint32_t*) 10, temp_thresh);
 					update_temp();
 					temp_print();
 				}
@@ -192,8 +222,10 @@ int main(void)
 			{
 				if (is_fahrenheight)
 				{
-					is_fahrenheight = false;
+					is_fahrenheight = 0x00;
+					starting = eeprom_read_byte((uint8_t*) 0);
 					temp_thresh = (temp_thresh - 320) * 5 / 9;
+					eeprom_update_dword((uint32_t*) 10, temp_thresh);
 					update_temp();
 					temp_print();
 				}
@@ -268,7 +300,9 @@ int main(void)
 				lcd_cursormoveto(0, 0);
 				lcd_writestring("Starting new brew");
 				_delay_ms(750);
-				starting = true;
+				starting = 0x01;
+				eeprom_update_byte((uint8_t*) 14, starting);
+				_delay_ms(100);
 				reset_device();
 			}
 			else
@@ -277,7 +311,9 @@ int main(void)
 				lcd_cursormoveto(0, 0);
 				lcd_writestring("Saving brew");
 				_delay_ms(750);
-				starting = false;
+				starting = 0x00;
+				eeprom_update_byte((uint8_t*) 14, starting);
+				_delay_ms(100);
 				reset_device();
 			}
 			_delay_ms(5);
