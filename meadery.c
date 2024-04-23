@@ -124,12 +124,13 @@ int main(void)
 		temp_thresh = eeprom_read_dword((uint32_t*)10); // eeprom read
 		is_fahrenheight = eeprom_read_byte((uint8_t*)0); // eeprom read
 
-		// for(int i = 0; i < elapsed_hours; i++)
-		// {
-		// 	idx = 16 + 4 * i; 
-		// 	bubble_history[i] = eeprom_read_dword((uint32_t*)idx);// eeprom read
-		// }
-		// bubble_history = eeprom_read_byte((uint8_t*)16);// eeprom read
+		int i = 0;
+		 for(i = 0; i < elapsed_hours; i++)
+		 {
+		 	idx = 16 + (sizeof(int) * i); 
+		 	bubble_history[i] = eeprom_read_dword((uint32_t*)idx);// eeprom read
+		 }
+		 //bubble_history = eeprom_read_byte((uint8_t*)16);// eeprom read
 		current_time = get_current_time();
 	}
 	starting = 0x00;
@@ -151,11 +152,11 @@ int main(void)
 				{
 					brewing_state = DONE;
 				}
-				elapsed_hours++;
 				// Update eeprom with elapsed hours and bubble history
+				idx = 16 + (sizeof(int) * elapsed_hours); // idx = 16 + 4;
+				eeprom_update_dword((uint32_t*)idx, bubbles_this_hour);// eeprom read
+				elapsed_hours++;
 				eeprom_update_dword((uint32_t*) 6, elapsed_hours);
-				// idx = 16 + 4 * elapsed_hours; // idx = 16 + 4;
-				// eeprom_write_dword((uint32_t*)idx, bubbles_this_hour);// eeprom read
 				bubbles_this_hour = 0;
 			}
 			current_time = get_current_time();
